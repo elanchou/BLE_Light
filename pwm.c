@@ -3,24 +3,20 @@
 #include "OSAL.h"
 #include "pwm.h"
 
-//此资料为amomcu参考网络上的资料
-
 //pwm pins:
-//P0_3:R  (TX)--ch1
-//P0_4:G  (CTS)--ch2
-//P0_5:B  (RTS)--ch3
-static uint16 gRed =1;
-static uint16 gGreen =1;
-static uint16 gBlue =1;
+//P0_3:白  (TX)--ch1
+//P0_4:暖  (CTS)--ch2
+static uint16 WhiteLight =1;
+static uint16 WarmLight =1;
 
 
 
 void PWM_Init()
 {
   //设置pwm端口为输出
-  P0DIR|= BV(3)|BV(4)|BV(5);
+  P0DIR|= BV(3)|BV(4);
   //设置pwm端口为外设端口，非gpio
-  P0SEL|= BV(3)|BV(4)|BV(5);
+  P0SEL|= BV(3)|BV(4);
   //由于uart等会占用我们当前使用的pwm端口，因此需要将uart等重映射到别的端口去。
   PERCFG |= 0x03;             // Move USART1&2 to alternate2 location so that T1 is visible
 
@@ -28,7 +24,6 @@ void PWM_Init()
   T1CTL = 0x0C;               // Div = 128, CLR, MODE = Suspended          
   T1CCTL1 = 0x0C;             // IM = 0; CMP = Clear output on compare; Mode = Compare
   T1CCTL2 = 0x0C;             // IM = 0; CMP = Clear output on compare; Mode = Compare
-  T1CCTL3 = 0x0C;             // IM = 0, CMP = Clear output on compare; Mode = Compare
   T1CNTL = 0;                 // Reset timer to 0;
 
     //必须设置，否则定时器不工作
@@ -42,8 +37,6 @@ void PWM_Init()
   T1CC1L = 0x77;
   T1CC2H = 0x01;              // Ticks = 375 (1.5ms initial duty cycle)
   T1CC2L = 0x77;
-  T1CC3H = 0x01;              // Ticks = 375 (1.5ms initial duty cycle)
-  T1CC3L = 0x77;  
 #else//以下设置会是1khz
 #define VALUE_H     0x00
 #define VALUE_L     0x10
@@ -62,44 +55,32 @@ void PWM_Init()
 }
 
 //red， green， blue 的值必须是 1~375, 其他值无效
-void PWM_Pulse(uint16 red, uint16 green, uint16 blue)
+void PWM_Pulse(uint16 white, uint16 warm)
 {
-  uint16 r,g,b;
+  uint16 wh,wa;
 
   // stop,注意，不能加这句，加了周期偏差十几倍，具体原因未查明
   //T1CTL &= BV(0)|BV(1); 
-#if 0
-  r=375;
-  g=1;
-  b=1;
-#else
-  r=red;
-  g=green;
-  b=blue;
-#endif
+
+  wh = white;
+  wa = warm;
+
   // Set up the timer registers
 
-  T1CC1L = (uint8)r;
-  T1CC1H = (uint8)(r >> 8);
+  T1CC1L = (uint8)wh;
+  T1CC1H = (uint8)(wh >> 8);
   //避免比较值为0时，输出一直为高
-  if(r!=0){
+  if(wh!=0){
     T1CCTL1 = 0x0C;
   }else{
     T1CCTL1 = 0x00;
   }
-  T1CC2L = (uint8)g;
-  T1CC2H = (uint8)(g >> 8);
-  if(g!=0){
+  T1CC2L = (uint8)wa;
+  T1CC2H = (uint8)(wa >> 8);
+  if(wa!=0){
     T1CCTL2 = 0x0C;
   }else{
     T1CCTL2 = 0x00;
-  }
-  T1CC3L = (uint8)b;
-  T1CC3H = (uint8)(b >> 8);
-  if(b!=0){
-    T1CCTL3 = 0x0C;
-  }else{
-    T1CCTL3 = 0x00;
   }
 
   // Reset timer
@@ -111,11 +92,10 @@ void PWM_Pulse(uint16 red, uint16 green, uint16 blue)
 }
 
 //red， green， blue 的值必须是 1~375, 其他值无效
-void PWM_RGB(uint16 red, uint16 green, uint16 blue)
+void PWM_Change(uint16 white, uint16 warm)
 {    
-  gRed=red;
-  gGreen=green;
-  gBlue=blue;
+  WhiteLight = white;
+  WarmLight = warm;
 }
 
 //#pragma register_bank=2
@@ -129,8 +109,9 @@ __interrupt void pwmISR (void)
       // Stop Timer 1
       //T1CTL |= 0x02;
     //red， green， blue 的值必须是 1~375, 其他值无效
-      PWM_Pulse(gRed,gGreen,gBlue);
+      PWM_Pulse(WhiteLight,WarmLight);
      
     }
     T1STAT = ~ flags;
 }
+ 
